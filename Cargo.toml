@@ -1,11 +1,7 @@
-[package]
-name = "synth"
-version = "0.1.0"
-edition = "2021"
+[workspace]
 
-[dependencies]
-anyhow = "1"
-cpal = "0.13"
-dasp_graph = { version = "0.11", features = [ "all-nodes" ] }
-petgraph = { version = "0.5", default-features = false }
-rtrb = "0.2"
+members = [
+    "synth",
+    "synth-module",
+    "synth-node",
+]

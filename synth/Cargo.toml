@@ -1,0 +1,13 @@
+[package]
+name = "synth"
+version = "0.1.0"
+edition = "2021"
+
+[dependencies]
+synth-module = { path = "../synth-module" }
+synth-node = { path = "../synth-node" }
+
+anyhow = "1"
+cpal = { version = "0.13", default-features = false }
+dasp_graph = { version = "0.11", default-features = false, features = [ "all-nodes" ] }
+petgraph = { version = "0.5", default-features = false }

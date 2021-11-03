@@ -844,6 +844,25 @@ dependencies = [
  "cpal",
  "dasp_graph",
  "petgraph",
+ "synth-module",
+ "synth-node",
+]
+
+[[package]]
+name = "synth-module"
+version = "0.1.0"
+dependencies = [
+ "dasp_graph",
+ "petgraph",
+ "synth-node",
+]
+
+[[package]]
+name = "synth-node"
+version = "0.1.0"
+dependencies = [
+ "cpal",
+ "dasp_graph",
  "rtrb",
 ]
 
