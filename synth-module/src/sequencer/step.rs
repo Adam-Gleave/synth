@@ -45,8 +45,16 @@ impl<const N: usize> StepSequencer<N> {
             );
         }
 
-        graph.add_edge(self.clock_in.index().unwrap(), self.level_switch.index().unwrap(), ());
-        graph.add_edge(self.level_switch.index().unwrap(), self.v_oct_out.index().unwrap(), ());
+        graph.add_edge(
+            self.clock_in.index().unwrap(),
+            self.level_switch.index().unwrap(),
+            (),
+        );
+        graph.add_edge(
+            self.level_switch.index().unwrap(),
+            self.v_oct_out.index().unwrap(),
+            (),
+        );
 
         self
     }

@@ -1,5 +1,8 @@
 use synth_module::{oscillator::MultiOscillator, sequencer::StepSequencer};
-use synth_node::{source::{Level, Clock}, sink::CpalMonoSink};
+use synth_node::{
+    sink::CpalMonoSink,
+    source::{Clock, Level},
+};
 
 use cpal::traits::{DeviceTrait, HostTrait};
 use dasp_graph::{BoxedNode, NodeData, Processor};
@@ -19,7 +22,7 @@ fn main() -> Result<(), anyhow::Error> {
 
     let clock = Clock::new(160.0, config.sample_rate().0);
     let clock_idx = g.add_node(NodeData::boxed1(clock));
-    
+
     let sequencer = StepSequencer::<4>::new([
         Level::new(0.0),
         Level::new(1.0),
@@ -30,7 +33,11 @@ fn main() -> Result<(), anyhow::Error> {
     g.add_edge(clock_idx, sequencer.clock_in().unwrap(), ());
 
     let oscillator = MultiOscillator::new(130.0, config.sample_rate().0).build_graph(&mut g);
-    g.add_edge(sequencer.v_oct_out().unwrap(), oscillator.v_oct_in().unwrap(), ());
+    g.add_edge(
+        sequencer.v_oct_out().unwrap(),
+        oscillator.v_oct_in().unwrap(),
+        (),
+    );
 
     let sink = match config.sample_format() {
         cpal::SampleFormat::F32 => {

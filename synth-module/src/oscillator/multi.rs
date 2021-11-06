@@ -1,6 +1,9 @@
 use crate::{port::ModuleIO, Graph};
 
-use synth_node::{source::{Level, Saw, Sine, Square, Triangle}, util::PassOrDefault};
+use synth_node::{
+    source::{Level, Saw, Sine, Square, Triangle},
+    util::PassOrDefault,
+};
 
 use petgraph::graph::NodeIndex;
 
