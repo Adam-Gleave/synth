@@ -1,4 +1,4 @@
-use synth_module::{oscillator::MultiOscillator, sequencer::StepSequencer};
+use synth_module::{SynthModule, oscillator::DeriveOscillator, sequencer::StepSequencer};
 use synth_node::{
     sink::CpalMonoSink,
     source::{Clock, Level},
@@ -32,7 +32,7 @@ fn main() -> Result<(), anyhow::Error> {
     .build_graph(&mut g);
     g.add_edge(clock_idx, sequencer.clock_in().unwrap(), ());
 
-    let oscillator = MultiOscillator::new(130.0, config.sample_rate().0).build_graph(&mut g);
+    let oscillator = DeriveOscillator::new(130.0, config.sample_rate().0).build_graph(&mut g);
     g.add_edge(
         sequencer.v_oct_out().unwrap(),
         oscillator.v_oct_in().unwrap(),

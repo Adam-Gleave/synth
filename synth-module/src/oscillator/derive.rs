@@ -11,6 +11,9 @@ use petgraph::graph::NodeIndex;
 pub struct DeriveOscillator {
     #[synth_module(input = "v_oct")]
     #[synth_module(connect = "sine")]
+    #[synth_module(connect = "square")]
+    #[synth_module(connect = "saw")]
+    #[synth_module(connect = "triangle")]
     v_oct: ModuleIO<PassOrDefault<Level>>,
 
     #[synth_module(output = "sine")]

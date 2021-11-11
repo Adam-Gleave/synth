@@ -1,13 +1,15 @@
-use std::{collections::HashMap, slice::SliceIndex};
+use std::collections::HashMap;
 
 use petgraph::{
-    graph::NodeIndex, visit::IntoEdgesDirected, Directed, EdgeDirection::Incoming, Graph,
+    graph::NodeIndex,
+    visit::EdgeRef,
+    Graph,
 };
 use proc_macro_error::{abort, proc_macro_error, ResultExt};
 use quote::{format_ident, quote, ToTokens};
 use syn::{
     parse::{Parse, ParseStream},
-    parse_macro_input, Attribute, DataStruct, DeriveInput, Field, Ident, LitStr, Token,
+    parse_macro_input, Attribute, DataStruct, DeriveInput, Ident, LitStr, Token,
 };
 
 #[proc_macro_error]
@@ -44,15 +46,7 @@ impl SynthModuleImpl {
             .fields
             .iter()
             .map(|field| {
-                let Field {
-                    attrs,
-                    vis: _,
-                    ident,
-                    colon_token: _,
-                    ty: _,
-                } = field;
-
-                attrs.iter().map(|attr| {
+                field.attrs.iter().map(|attr| {
                     if attr.path.is_ident("synth_module") {
                         let module_attr = attr.parse_args_with(|parse_stream: ParseStream| {
                             let ident = parse_stream.parse::<Ident>().unwrap_or_abort();
@@ -66,7 +60,10 @@ impl SynthModuleImpl {
                                     parse_stream.parse::<Output>().unwrap_or_abort(),
                                 ),
                                 "connect" => SynthModuleAttr::Connection(
-                                    Connection::parse_with_src(ident, parse_stream).unwrap_or_abort(),
+                                    match &field.ident {
+                                        Some(src_ident) => Connection::parse_with_src(src_ident.clone(), parse_stream).unwrap_or_abort(),
+                                        None => abort!(ident, "\"connect\" attribute can only be used with named fields"),
+                                    }
                                 ),
                                 other => {
                                     let msg = format!("invalid attribute \"{}\"", other);
@@ -129,7 +126,7 @@ impl ToTokens for SynthModuleImpl {
                 let fn_name = format_ident!("{}_in", field_name);
 
                 quote! {
-                    fn #fn_name(&self) -> Option<NodeIndex<u32>> {
+                    pub fn #fn_name(&self) -> Option<NodeIndex<u32>> {
                         self.#field_name.index()
                     }
                 }
@@ -143,7 +140,7 @@ impl ToTokens for SynthModuleImpl {
                 let fn_name = format_ident!("{}_out", field_name);
 
                 quote! {
-                    fn #fn_name(&self) -> Option<NodeIndex<u32>> {
+                    pub fn #fn_name(&self) -> Option<NodeIndex<u32>> {
                         self.#field_name.index()
                     }
                 }
@@ -178,13 +175,41 @@ impl ToTokens for SynthModuleImpl {
             graph.add_edge(src_idx, dst_idx, ());
         }
 
-        for edge in graph.edges_directed(nodes[&"sine".to_string()], Incoming) {
-            println!("Node: {:?}", edge);
+        let mut connect_quotes = Vec::new();
+
+        for input in inputs.iter().map(|input| input.name.value()) {
+            let src_ident = format_ident!("{}", input);
+            connect_quotes.push(quote! {
+                self.#src_ident.connect(graph);
+            });
+
+            for output in outputs.iter().map(|output| output.name.value()) {
+                for edge in graph.edges_connecting(nodes[&input], nodes[&output]) {
+                    let dst_ident = format_ident!("{}", graph[edge.target()]);
+                    connect_quotes.push(quote! {
+                        self.#dst_ident.connect(graph);
+                    });
+                }
+            }
+        }
+
+        for input in inputs.iter().map(|input| input.name.value()) {
+            for output in outputs.iter().map(|output| output.name.value()) {
+                for edge in graph.edges_connecting(nodes[&input], nodes[&output]) {
+                    let src_ident = format_ident!("{}", graph[edge.source()]);
+                    let dst_ident = format_ident!("{}", graph[edge.target()]);
+                    connect_quotes.push(quote! {
+                        graph.add_edge(self.#src_ident.index().unwrap(), self.#dst_ident.index().unwrap(), ());
+                    });
+                }
+            }
         }
 
         let impl_tokens = quote! {
             impl SynthModule for #name {
-                fn build_graph(self, graph: &Graph) -> Self {
+                fn build_graph(mut self, graph: &mut Graph) -> Self {
+                    #(#connect_quotes)*
+
                     self
                 }
             }
@@ -194,8 +219,6 @@ impl ToTokens for SynthModuleImpl {
                 #(#output_getters)*
             }
         };
-
-        println!("Generated: \n{}", impl_tokens);
 
         impl_tokens.to_tokens(tokens);
     }
@@ -232,7 +255,7 @@ impl Parse for Output {
     }
 }
 
-#[derive(Clone)]
+#[derive(Debug, Clone)]
 struct Connection {
     src: Ident,
     connected_to: LitStr,

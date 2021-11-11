@@ -10,5 +10,5 @@ pub mod sequencer;
 type Graph = petgraph::Graph<NodeData<BoxedNode>, (), Directed, u32>;
 
 pub trait SynthModule {
-    fn build_graph(self, graph: &Graph) -> Self;
+    fn build_graph(self, graph: &mut Graph) -> Self;
 }
