@@ -14,10 +14,10 @@ pub struct StepSequencer<const N: usize> {
 
 impl<const N: usize> StepSequencer<N> {
     pub fn new(levels: [Level; N]) -> Self {
-        let clock_in = ModuleIO::disconnected(Pass);
-        let level_switch = ModuleIO::disconnected(SequentialSwitch::new(N));
-        let levels = levels.map(|level| ModuleIO::disconnected(PassOrDefault::new(level)));
-        let v_oct_out = ModuleIO::disconnected(Pass);
+        let clock_in = ModuleIO::new(Pass);
+        let level_switch = ModuleIO::new(SequentialSwitch::new(N));
+        let levels = levels.map(|level| ModuleIO::new(PassOrDefault::new(level)));
+        let v_oct_out = ModuleIO::new(Pass);
 
         Self {
             clock_in,

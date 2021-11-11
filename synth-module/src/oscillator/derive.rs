@@ -29,11 +29,11 @@ pub struct DeriveOscillator {
 impl DeriveOscillator {
     pub fn new(freq: f32, sample_rate: u32) -> Self {
         Self {
-            v_oct: ModuleIO::disconnected(PassOrDefault::new(Level::new(0.0))),
-            sine: ModuleIO::disconnected(Sine::new(freq, sample_rate)),
-            square: ModuleIO::disconnected(Square::new(freq, sample_rate)),
-            saw: ModuleIO::disconnected(Saw::new(freq, sample_rate)),
-            triangle: ModuleIO::disconnected(Triangle::new(freq, sample_rate)),
+            v_oct: ModuleIO::new(PassOrDefault::new(Level::new(0.0))),
+            sine: ModuleIO::new(Sine::new(freq, sample_rate)),
+            square: ModuleIO::new(Square::new(freq, sample_rate)),
+            saw: ModuleIO::new(Saw::new(freq, sample_rate)),
+            triangle: ModuleIO::new(Triangle::new(freq, sample_rate)),
         }
     }
 }

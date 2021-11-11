@@ -11,6 +11,10 @@ enum Impl<T: Node + 'static> {
 }
 
 impl<T: Node + 'static> ModuleIO<T> {
+    pub fn new(node: T) -> Self {
+        Self::disconnected(node)
+    }
+
     pub fn connected(index: NodeIndex<u32>) -> Self {
         Self {
             inner: Impl::Connected(index),
