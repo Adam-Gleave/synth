@@ -1,4 +1,4 @@
-use synth_module::{SynthModule, oscillator::DeriveOscillator, sequencer::StepSequencer};
+use synth_module::{oscillator::DeriveOscillator, sequencer::StepSequencer, SynthModule};
 use synth_node::{
     sink::CpalMonoSink,
     source::{Clock, Level},

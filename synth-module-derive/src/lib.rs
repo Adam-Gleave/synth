@@ -1,10 +1,6 @@
 use std::collections::HashMap;
 
-use petgraph::{
-    graph::NodeIndex,
-    visit::EdgeRef,
-    Graph,
-};
+use petgraph::{graph::NodeIndex, visit::EdgeRef, Graph};
 use proc_macro_error::{abort, proc_macro_error, ResultExt};
 use quote::{format_ident, quote, ToTokens};
 use syn::{
