@@ -1,11 +1,11 @@
-use std::collections::HashMap;
+use std::collections::{HashMap, HashSet};
 
 use petgraph::{graph::NodeIndex, visit::EdgeRef, Graph};
 use proc_macro_error::{abort, proc_macro_error, ResultExt};
 use quote::{format_ident, quote, ToTokens};
 use syn::{
-    parse::{Parse, ParseStream},
-    parse_macro_input, Attribute, DataStruct, DeriveInput, Ident, LitStr, Token,
+    parse::ParseStream, parse_macro_input, punctuated::Punctuated, Attribute, DataStruct,
+    DeriveInput, Ident, LitStr, Token,
 };
 
 #[proc_macro_error]
@@ -46,21 +46,22 @@ impl SynthModuleImpl {
                     if attr.path.is_ident("synth_module") {
                         let module_attr = attr.parse_args_with(|parse_stream: ParseStream| {
                             let ident = parse_stream.parse::<Ident>().unwrap_or_abort();
-                            parse_stream.parse::<Token![=]>().unwrap_or_abort();
+                            let field_ident = field.ident.clone();
+
+                            if field_ident.is_none() {
+                                abort!(ident, "attribute can only be used with named fields");
+                            }
 
                             let parsed = match ident.to_string().as_str() {
-                                "input" => SynthModuleAttr::Input(
-                                    parse_stream.parse::<Input>().unwrap_or_abort(),
-                                ),
-                                "output" => SynthModuleAttr::Output(
-                                    parse_stream.parse::<Output>().unwrap_or_abort(),
-                                ),
-                                "connect" => SynthModuleAttr::Connection(
-                                    match &field.ident {
-                                        Some(src_ident) => Connection::parse_with_src(src_ident.clone(), parse_stream).unwrap_or_abort(),
-                                        None => abort!(ident, "\"connect\" attribute can only be used with named fields"),
-                                    }
-                                ),
+                                "input" => SynthModuleAttr::Input(Input(field.ident.clone().unwrap())),
+                                "output" => SynthModuleAttr::Output(Output(field.ident.clone().unwrap())),
+                                "connect" => {
+                                    parse_stream.parse::<Token![=]>().unwrap_or_abort();
+                                    SynthModuleAttr::Connection(
+                                        Connection::parse_with_src(field.ident.clone().unwrap(), parse_stream)
+                                            .unwrap_or_abort(),
+                                    )
+                                }
                                 other => {
                                     let msg = format!("invalid attribute \"{}\"", other);
                                     abort!(
@@ -118,7 +119,7 @@ impl ToTokens for SynthModuleImpl {
         let input_getters = inputs
             .iter()
             .map(|input| {
-                let field_name = format_ident!("{}", input.name.value());
+                let field_name = format_ident!("{}", input.0.to_string());
                 let fn_name = format_ident!("{}_in", field_name);
 
                 quote! {
@@ -132,7 +133,7 @@ impl ToTokens for SynthModuleImpl {
         let output_getters = outputs
             .iter()
             .map(|output| {
-                let field_name = format_ident!("{}", output.name.value());
+                let field_name = format_ident!("{}", output.0.to_string());
                 let fn_name = format_ident!("{}_out", field_name);
 
                 quote! {
@@ -148,38 +149,41 @@ impl ToTokens for SynthModuleImpl {
 
         for connection in connections {
             let src = connection.src.to_string();
-            let dst = connection.connected_to.value();
 
-            let src_idx = match nodes.get(&src) {
-                Some(src) => *src,
-                None => {
-                    let idx = graph.add_node(src.clone());
-                    nodes.insert(src, idx);
-                    idx
-                }
-            };
+            for dst in connection.connected_to.iter().cloned() {
+                let dst = dst.value();
 
-            let dst_idx = match nodes.get(&dst) {
-                Some(dst) => *dst,
-                None => {
-                    let idx = graph.add_node(dst.clone());
-                    nodes.insert(dst, idx);
-                    idx
-                }
-            };
+                let src_idx = match nodes.get(&src) {
+                    Some(src) => *src,
+                    None => {
+                        let idx = graph.add_node(src.clone());
+                        nodes.insert(src.clone(), idx);
+                        idx
+                    }
+                };
 
-            graph.add_edge(src_idx, dst_idx, ());
+                let dst_idx = match nodes.get(&dst) {
+                    Some(dst) => *dst,
+                    None => {
+                        let idx = graph.add_node(dst.clone());
+                        nodes.insert(dst, idx);
+                        idx
+                    }
+                };
+
+                graph.add_edge(src_idx, dst_idx, ());
+            }
         }
 
         let mut connect_quotes = Vec::new();
 
-        for input in inputs.iter().map(|input| input.name.value()) {
+        for input in inputs.iter().map(|input| input.0.to_string()) {
             let src_ident = format_ident!("{}", input);
             connect_quotes.push(quote! {
                 self.#src_ident.connect(graph);
             });
 
-            for output in outputs.iter().map(|output| output.name.value()) {
+            for output in outputs.iter().map(|output| output.0.to_string()) {
                 for edge in graph.edges_connecting(nodes[&input], nodes[&output]) {
                     let dst_ident = format_ident!("{}", graph[edge.target()]);
                     connect_quotes.push(quote! {
@@ -189,8 +193,8 @@ impl ToTokens for SynthModuleImpl {
             }
         }
 
-        for input in inputs.iter().map(|input| input.name.value()) {
-            for output in outputs.iter().map(|output| output.name.value()) {
+        for input in inputs.iter().map(|input| input.0.to_string()) {
+            for output in outputs.iter().map(|output| output.0.to_string()) {
                 for edge in graph.edges_connecting(nodes[&input], nodes[&output]) {
                     let src_ident = format_ident!("{}", graph[edge.source()]);
                     let dst_ident = format_ident!("{}", graph[edge.target()]);
@@ -228,38 +232,22 @@ enum SynthModuleAttr {
 }
 
 #[derive(Clone)]
-struct Input {
-    name: LitStr,
-}
-
-impl Parse for Input {
-    fn parse(parse_input: ParseStream) -> syn::Result<Self> {
-        let name = parse_input.parse::<LitStr>()?;
-        Ok(Self { name })
-    }
-}
+struct Input(Ident);
 
 #[derive(Clone)]
-struct Output {
-    name: LitStr,
-}
-
-impl Parse for Output {
-    fn parse(parse_input: ParseStream) -> syn::Result<Self> {
-        let name = parse_input.parse::<LitStr>()?;
-        Ok(Self { name })
-    }
-}
+struct Output(Ident);
 
 #[derive(Debug, Clone)]
 struct Connection {
     src: Ident,
-    connected_to: LitStr,
+    connected_to: HashSet<LitStr>,
 }
 
 impl Connection {
     fn parse_with_src(src: Ident, parse_input: ParseStream) -> syn::Result<Self> {
-        let connected_to = parse_input.parse::<LitStr>()?;
+        let connected_to = HashSet::from_iter(
+            Punctuated::<LitStr, Token![,]>::parse_separated_nonempty(parse_input)?.into_iter(),
+        );
         Ok(Self { src, connected_to })
     }
 }
