@@ -3,5 +3,6 @@
 members = [
     "synth",
     "synth-module",
+    "synth-module-derive",
     "synth-node",
 ]
